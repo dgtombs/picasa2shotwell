@@ -29,15 +29,29 @@ from pathlib import Path
 # Path to the Shotwell database
 shotwelldb_path = Path.home() / '.local' / 'share' / 'shotwell' / 'data' / 'photo.db'
 
+shotwelldb_conn = sqlite3.connect(shotwelldb_path)
+
 dry_run = False
 
 ### END GLOBALS ###
 
 def writeRating(filepath, rating):
-    if dry_run:
-        print('Would update', filepath, 'rating to', rating)
-    else:
-        raise Exception('update mode not yet supprted')
+    print('Updating', filepath, 'rating to', rating, '...')
+    cursor = shotwelldb_conn.cursor()
+    cursor.execute(
+            'UPDATE PhotoTable SET rating = ? WHERE filename = ?',
+            [rating, str(filepath)]
+            )
+    photo_count = cursor.rowcount
+    cursor.execute(
+            'UPDATE VideoTable SET rating = ? WHERE filename = ?',
+            [rating, str(filepath)]
+            )
+    video_count = cursor.rowcount
+    if photo_count + video_count != 1:
+        raise Exception(
+                f'Unexpected row count for rating update: photo_count={photo_count}, video_count={video_count}')
+
 
 def writeTagsToShotwell(filepath, tags):
     for tag in tags:
@@ -90,5 +104,8 @@ def main():
     for picasa_ini_path in findPicasaInis(root_paths):
         print("Processing", str(picasa_ini_path), "...", file=sys.stderr)
         extractTags(picasa_ini_path)
+
+    if dry_run == False:
+        shotwelldb_conn.commit()
 
 main()
