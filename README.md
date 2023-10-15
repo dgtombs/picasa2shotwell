@@ -24,4 +24,4 @@ Picasa Format Notes
   * I think we can bulk-assign numerical ratings as long as the tags get into Shotwell.
 * Photo captions go in EXIF title (and Shotwell reads these)
 * Video tags go in .picasa.ini.
-* Video captions I can't find!
+* Video captions are stored in Picasa's proprietary DB format which is hard to read.
