@@ -10,6 +10,11 @@ import sys
 from itertools import chain
 from pathlib import Path
 
+# Check version before doing anything else.
+if sys.version_info[0] != 3 or sys.version_info[1] < 8:
+    print("This script requires Python version 3.8")
+    sys.exit(1)
+
 ### GLOBALS ###
 
 # Path to the Shotwell database
