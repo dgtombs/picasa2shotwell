@@ -86,7 +86,7 @@ class ShotwellDb:
 
 def writeTagsToShotwell(filepath, tags):
     for tag in tags:
-        if tag == 'pythontagged':
+        if tag == 'pythontagged' or tag == '':
             continue
         elif tag == 'excellent':
             shotwelldb.setRating(filepath, 5)
@@ -108,7 +108,8 @@ def extractTagsFromIni(picasa_ini_path):
     # Section names are filenames
     for filename in ini.sections():
         filepath = (picasa_ini_path.parent / filename)
-        tags = ini[filename]['keywords'].split(',')
+        file_section = ini[filename]
+        tags = file_section.get('keywords', '').split(',')
         writeTagsToShotwell(filepath, tags)
 
 def findPicasaInis(root_paths):
