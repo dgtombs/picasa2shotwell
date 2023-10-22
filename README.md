@@ -9,9 +9,10 @@ Requirements
 
 High-level requirements:
 
-1. Extract rating tags from Picasa INI files and apply to Shotwell DB.
-2. Extract non-rating tags from Picasa INI files and print to stdout. (Since tags in the Shotwell
-   DB are tough.)
+1. Extract rating tags from Picasa INI files and apply (as ratings) to Shotwell DB.
+2. Extract non-rating tags from Picasa INI files and copy to Shotwell DB.
+   * Note: I am copying tags with a prefix since I only support creating new tags in my
+     script.
 3. Auto-create events based on folder names.
 
 Some folder -> event name examples can be found in the test suite.

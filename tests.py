@@ -1,6 +1,48 @@
-from pathlib import PurePath
+from pathlib import Path, PurePath
 import picasa2shotwell
 import unittest
+
+def makeDb():
+    return picasa2shotwell.ShotwellDb(Path('testdata') / 'photo.db')
+
+class TestShotwellDb(unittest.TestCase):
+
+    def test_getIdStringForFilename(self):
+        db = makeDb()
+        cases = [
+            # (filename, expected result)
+            ('/home/david/Pictures/2019/legoland/20191129_133938.mp4',
+                'video-000000000000000f'),
+            ('/home/david/Pictures/backgrounds/04102_landofmists_1680x1050.jpg',
+                'thumb0000000000000bf2'),
+            ('/home/david/Pictures/Photos/2008 Caketown/2008 Caketown 1.001.JPG',
+                'thumb0000000000000690'),
+            ('/home/david/Pictures/Photos/2008 Caketown/2008 Caketown 1.003.JPG',
+                'thumb0000000000000691'),
+            ('/home/david/thispathdoesnotexist', None),
+        ]
+
+        for filename, expected_result in cases:
+            with self.subTest(filename=filename):
+                idstr = db.getIdStringForFilename(filename)
+                self.assertEqual(idstr, expected_result)
+
+    def test_tag(self):
+        db = makeDb()
+
+        expectedTagsToWrite = {
+            'caketown': {'thumb0000000000000690','thumb0000000000000691'},
+            'legoland': {'video-000000000000000f'}
+        }
+
+        db.tag('/home/david/Pictures/Photos/2008 Caketown/2008 Caketown 1.001.JPG',
+            'caketown')
+        db.tag('/home/david/Pictures/2019/legoland/20191129_133938.mp4', 'legoland')
+        db.tag('/home/david/Pictures/Photos/2008 Caketown/2008 Caketown 1.003.JPG',
+            'caketown')
+
+        self.assertEqual(db.tagsToWrite, expectedTagsToWrite)
+
 
 class TestMakeEventNameFromDirectory(unittest.TestCase):
 

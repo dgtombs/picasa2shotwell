@@ -6,6 +6,7 @@ import os
 import re
 import sqlite3
 import sys
+import time
 
 from itertools import chain
 from pathlib import Path
@@ -26,8 +27,12 @@ dry_run = False
 
 class ShotwellDb:
     """Provides functions for reading from or writing to the Shotwell database."""
-    def __init__(self):
-        self.conn = sqlite3.connect(shotwelldb_path)
+    def __init__(self, db_path=None):
+        if db_path is None:
+            db_path = shotwelldb_path
+        self.conn = sqlite3.connect(db_path)
+        # Dictionary from tag name to a set of Shotwell-format IDs.
+        self.tagsToWrite = {}
 
     def setRating(self, filepath, rating):
         # Shotwell stores the absolute path to the file.
@@ -81,7 +86,80 @@ class ShotwellDb:
         elif photo_count + video_count > 1:
             raise Exception(f'Filepath {filepath} matched more than one photo/video!')
 
+    def getIdStringForFilename(self, filepath):
+        """Returns the Shotwell ID string for the given file path.
+
+        Shotwell ID strings are 'thumbXXXXXXXXXXXXXXXX' for photos and
+        'video-XXXXXXXXXXXXXXXX' for videos.
+
+        Returns None if the photo or video could not be found."""
+        # Shotwell stores the absolute path to the file.
+        filepath = filepath.resolve()
+        # Note: there is a UNIQUE contraint on `filename` in both tables.
+        photo_row = self.conn.execute(
+                'SELECT id FROM PhotoTable WHERE filename = ?',
+                [str(filepath)]
+        ).fetchone()
+        video_row = self.conn.execute(
+                'SELECT id FROM VideoTable WHERE filename = ?',
+                [str(filepath)]
+        ).fetchone()
+        if photo_row and video_row:
+            raise Exception(f'File {filename} found in both photo and video tables!')
+
+        if photo_row:
+            photo_id = photo_row[0]
+            return str.format('thumb{:016x}', photo_id)
+        elif video_row:
+            video_id = video_row[0]
+            return str.format('video-{:016x}', video_id)
+        else:
+            return None
+
+    def ensureTagDoesNotExist(self, tagname):
+        existing_row = self.conn.execute(
+                "SELECT id FROM TagTable where name = ?",
+                [tagname]
+        ).fetchone()
+        if existing_row:
+            raise Exception(f'Updating existing tag {tagname} is unsupported')
+
+    def tag(self, filename, tagname):
+        # Since Shotwell's tag format is a bit obtuse, we just queue up tags to write
+        # and write them upon commit().
+        #
+        # We also do not support modifying tags which already exist in the DB since I
+        # haven't reverse-engineered every format.
+        #
+        # I wish they just used a join table.
+        if tagname not in self.tagsToWrite:
+            self.tagsToWrite[tagname] = set()
+
+        idstr = self.getIdStringForFilename(filename)
+        if idstr is None:
+            raise Exception(f'Filename {filename} not found in DB.')
+
+        self.tagsToWrite[tagname] |= {idstr}
+
+    def writePendingTags(self):
+        for tagname, idstrs in self.tagsToWrite.items():
+            self.ensureTagDoesNotExist(tagname)
+
+            id_list = ','.join(idstrs) + ','
+
+            print(f'Creating tag {tagname} with ids: {id_list}...')
+
+            self.conn.execute(
+                'INSERT INTO TagTable (name, photo_id_list, time_created) VALUES (?, ?, ?)',
+                (tagname, id_list, int(time.time()))
+            )
+
+        # Clear pending tags now that they are written
+        self.tagsToWrite = {}
+
     def commit(self):
+        """Commits pending changes to the DB."""
+        self.writePendingTags()
         self.conn.commit()
 
 def writeTagsToShotwell(filepath, tags):
@@ -97,8 +175,8 @@ def writeTagsToShotwell(filepath, tags):
         elif tag == 'bad':
             shotwelldb.setRating(filepath, 2)
         else:
-            # See requirements: just printing this out.
-            print('other tag', str(filepath), tag, sep='\t')
+            # See requirements: prefixing tags
+            shotwelldb.tag(filepath, 'picasa2shotwell ' + tag)
 
 def extractTagsFromIni(picasa_ini_path):
     """Extract tags from the given INI and either writes each as a rating or another tag
