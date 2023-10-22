@@ -186,6 +186,10 @@ def isYear(dirname):
     # with 1 or 2.
     return re.match('[12]\d{3}', dirname) != None
 
+def isYearMonth(dirname):
+    """Returns whether the given string looks like YYYY-MM."""
+    return re.match('[12]\d{3}-[01]\d', dirname) != None
+
 def makeEventNameFromDirectory(directory):
     """Makes an event name from a directory.
 
@@ -202,6 +206,10 @@ def makeEventNameFromDirectory(directory):
             name_under_year = parts[2]
             if isEventDirectory(name_under_year):
                 return year + ' - ' + name_under_year
+            elif isYearMonth(name_under_year) and len(parts) >= 4:
+                name_under_month = parts[3]
+                if isEventDirectory(name_under_month):
+                    return f'{name_under_year} - {name_under_month}'
 
         if parts[1] == 'Life':
             # It's a "Life" subdirectory, use the next two directories as the event name.

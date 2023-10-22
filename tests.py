@@ -58,6 +58,11 @@ class TestMakeEventNameFromDirectory(unittest.TestCase):
                     "2010 - Baby's 4th week 10.20-10.26"),
             ("Videos/Yerim",                              None),
             ("Pictures/Ebaying/20150427",                 None),
+            ("Pictures/2020/2020-12/1225_Christmas",      "2020-12 - 1225_Christmas"),
+            ("Pictures/2022/2022-10",                     None),
+            ("Pictures/2022/2022-11/11.24 Thanksgiving",  "2022-11 - 11.24 Thanksgiving"),
+            ("Pictures/2022/2022 Pro Fam Photos/familysession",
+                    "2022 - 2022 Pro Fam Photos"),
 
             ("Pictures/Life/Fall 2010",                   "Fall 2010"),
             ("Pictures/Life/Fall 2010/20100916_Whoopie pies",
