@@ -9,10 +9,8 @@ Requirements
 
 High-level requirements:
 
-1. Extract rating tags from Picasa INI files and apply (as ratings) to Shotwell DB.
-2. Extract non-rating tags from Picasa INI files and copy to Shotwell DB.
-   * Note: I am copying tags with a prefix since I only support creating new tags in my
-     script.
+1. Create tags in Shotwell based on PicasaDBReader export.
+2. Create captions in Shotwell based on the same.
 3. Auto-create events based on folder names.
 
 Some folder -> event name examples can be found in the test suite.
@@ -21,8 +19,10 @@ Some folder -> event name examples can be found in the test suite.
 Picasa Format Notes
 --------------------
 
-* Photo tags go in EXIF data (and Shotwell reads these)
-  * I think we can bulk-assign numerical ratings as long as the tags get into Shotwell.
-* Photo captions go in EXIF title (and Shotwell reads these)
-* Video tags go in .picasa.ini.
-* Video captions are stored in Picasa's proprietary DB format which is hard to read.
+* All tags go in Picasa's 'pmp' DB format.
+  * See <https://github.com/skisoo/PicasaDBReader> for reading this format.
+* Photo tags also go in EXIF data (and Shotwell reads these)
+* Photo captions also go in EXIF title (and Shotwell reads these)
+* Not sure where 'star' status is stored.
+* Picasa writes some data to `.picasa.ini` files but these are incomplete enough to be
+  pretty much useless.

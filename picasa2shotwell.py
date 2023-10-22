@@ -168,38 +168,9 @@ def writeTagsToShotwell(filepath, tags):
     for tag in tags:
         if tag == 'pythontagged' or tag == '':
             continue
-        elif tag == 'excellent':
-            shotwelldb.setRating(filepath, 5)
-        elif tag == 'good' or tag == 'good_2':
-            shotwelldb.setRating(filepath, 4)
-        elif tag == 'OK':
-            shotwelldb.setRating(filepath, 3)
-        elif tag == 'bad':
-            shotwelldb.setRating(filepath, 2)
         else:
             # See requirements: prefixing tags
             shotwelldb.tag(filepath, 'picasa2shotwell ' + tag)
-
-def extractTagsFromIni(picasa_ini_path):
-    """Extract tags from the given INI and either writes each as a rating or another tag
-    to stdout"""
-    ini = configparser.ConfigParser()
-    ini.read_file(picasa_ini_path.open())
-    # Section names are filenames
-    for filename in ini.sections():
-        filepath = (picasa_ini_path.parent / filename)
-        file_section = ini[filename]
-        tags = file_section.get('keywords', '').split(',')
-        writeTagsToShotwell(filepath, tags)
-
-def findPicasaInis(root_paths):
-    """Returns an iterable of all the Picasa INIs in root_paths"""
-    return chain.from_iterable(root_path.glob('**/.picasa.ini') for root_path in root_paths)
-
-def extractTagsFromInis(root_paths):
-    for picasa_ini_path in findPicasaInis(root_paths):
-        print("Processing", str(picasa_ini_path), "...", file=sys.stderr)
-        extractTagsFromIni(picasa_ini_path)
 
 def isEventDirectory(dirname):
     """Returns true if the given directory name should be treated as an "event" name,
@@ -288,7 +259,6 @@ def main():
     # Convert args roots into paths
     root_paths = [Path(path_str) for path_str in args.roots]
 
-    extractTagsFromInis(root_paths)
     createEvents(root_paths)
 
     if dry_run == False:
