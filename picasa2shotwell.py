@@ -133,6 +133,7 @@ class ShotwellDb:
         #
         # I wish they just used a join table.
         if tagname not in self.tagsToWrite:
+            self.ensureTagDoesNotExist(tagname)
             self.tagsToWrite[tagname] = set()
 
         idstr = self.getIdStringForFilename(filename)
@@ -143,6 +144,7 @@ class ShotwellDb:
 
     def writePendingTags(self):
         for tagname, idstrs in self.tagsToWrite.items():
+            # We should have already checked this, but let's make sure.
             self.ensureTagDoesNotExist(tagname)
 
             id_list = ','.join(idstrs) + ','
