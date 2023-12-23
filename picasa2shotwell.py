@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import configparser
-import os
 import re
 import sqlite3
 import sys
 import time
 
-from itertools import chain
 from pathlib import Path
 
 # Check version before doing anything else.
