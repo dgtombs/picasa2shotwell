@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from pathlib import Path, PurePath
 import picasa2shotwell
 import unittest
@@ -7,7 +9,7 @@ def makeDb():
 
 class TestShotwellDb(unittest.TestCase):
 
-    def test_getIdStringForFilename(self):
+    def test_get_id_string_for_file(self):
         db = makeDb()
         cases = [
             # (filename, expected result)
@@ -24,7 +26,7 @@ class TestShotwellDb(unittest.TestCase):
 
         for filename, expected_result in cases:
             with self.subTest(filename=filename):
-                idstr = db.getIdStringForFilename(Path(filename))
+                idstr = db.get_id_string_for_file(Path(filename))
                 self.assertEqual(idstr, expected_result)
 
     def test_tag(self):
@@ -41,7 +43,9 @@ class TestShotwellDb(unittest.TestCase):
         db.tag(Path('/home/david/Pictures/Photos/2008 Caketown/2008 Caketown 1.003.JPG'),
             'caketown')
 
-        self.assertEqual(db.tagsToWrite, expectedTagsToWrite)
+        # Future improvement: commit modifications and check the actual DB instead of just
+        # inspecting this "private" variable.
+        self.assertEqual(db._tags_to_write, expectedTagsToWrite)
 
 
 class TestMakeEventNameFromDirectory(unittest.TestCase):
@@ -77,7 +81,7 @@ class TestMakeEventNameFromDirectory(unittest.TestCase):
             with self.subTest(path=path_str):
                 path = PurePath(path_str)
                 self.assertEqual(
-                        picasa2shotwell.makeEventNameFromDirectory(path),
+                        picasa2shotwell.make_event_name_from_directory(path),
                         expected_result
                     )
 
