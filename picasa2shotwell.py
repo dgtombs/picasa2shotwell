@@ -24,7 +24,7 @@ if sys.version_info[0] != 3 or sys.version_info[1] < 8:
 # Path to the Shotwell database
 shotwelldb_path = Path.home() / '.local' / 'share' / 'shotwell' / 'data' / 'photo.db'
 
-shotwelldb = None
+_shotwelldb = None
 
 ### END GLOBALS ###
 
@@ -178,7 +178,7 @@ def _write_tags_to_shotwell(filepath, tags):
     for tag in tags:
         if tag != 'pythontagged' and tag != '':
             # See requirements: prefixing tags
-            shotwelldb.tag(filepath, 'picasa2shotwell ' + tag)
+            _shotwelldb.tag(filepath, 'picasa2shotwell ' + tag)
 
 def is_event_directory(dirname):
     """Returns true if the given directory name should be treated as an "event" name,
@@ -235,14 +235,14 @@ def create_event_if_appropriate(directory):
     desired_event_name = make_event_name_from_directory(directory)
     if desired_event_name:
         logging.info('Creating event "%s" for directory %s', desired_event_name, directory)
-        eventid = shotwelldb.getsert_event(desired_event_name)
+        eventid = _shotwelldb.getsert_event(desired_event_name)
         for child in directory.iterdir():
             # Assumption: hidden files will not be in Shotwell DB.
             if child.is_file() and child.parts[-1][0] != '.':
                 logging.info(
                     'Updating %s event to %s (%s)',
                     child, eventid, desired_event_name)
-                shotwelldb.set_event(child, eventid)
+                _shotwelldb.set_event(child, eventid)
 
 def create_events_for_tree(directory):
     """Creates Shotwell events for the given directory and subdirectories, as
@@ -260,7 +260,7 @@ def create_events_for_tree(directory):
             create_events_for_tree(child)
 
 def _main():
-    global shotwelldb
+    global _shotwelldb
 
     # Just extract this out for readability.
     def create_events(root_paths):
@@ -280,12 +280,12 @@ def _main():
     else:
         print('UPDATE MODE')
 
-    shotwelldb = ShotwellDb()
+    _shotwelldb = ShotwellDb()
 
     create_events(args.roots)
 
     if not dry_run:
-        shotwelldb.commit()
+        _shotwelldb.commit()
 
 if __name__ == '__main__':
     _main()
