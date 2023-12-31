@@ -247,8 +247,9 @@ def create_event_if_appropriate(directory):
 def create_events_for_tree(directory):
     """Creates Shotwell events for the given directory and subdirectories, as
     appropriate."""
+    directory = Path(directory)
     if not directory.is_dir():
-        raise ValueError(f'passed path "{directory}" is not a directory')
+        raise ValueError(f'passed "{directory}" is not a directory')
 
     # Create the event for this particular directory (if appropriate)
     create_event_if_appropriate(directory)
@@ -267,7 +268,8 @@ def _main():
             create_events_for_tree(root_path)
 
     argparser = argparse.ArgumentParser(prog='picasa2shotwell')
-    argparser.add_argument('roots', nargs='+')
+    argparser.add_argument('roots', nargs='*',
+                           help='directories to scan for creating events')
     argparser.add_argument('--dry-run', action='store_true')
     args = argparser.parse_args()
 
@@ -280,10 +282,7 @@ def _main():
 
     shotwelldb = ShotwellDb()
 
-    # Convert args roots into paths
-    root_paths = [Path(path_str) for path_str in args.roots]
-
-    create_events(root_paths)
+    create_events(args.roots)
 
     if not dry_run:
         shotwelldb.commit()
