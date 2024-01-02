@@ -178,8 +178,9 @@ class ShotwellDb:
             logging.warning(
                 'No photo or video record found for file "%s", cannot apply tag %s',
                 filename, tagname)
-
-        self._tags_to_write[tagname] |= {idstr}
+        else:
+            logging.info('Tagging "%s" with "%s"', filename, tagname)
+            self._tags_to_write[tagname] |= {idstr}
 
     def _write_pending_tags(self):
         for tagname, idstrs in self._tags_to_write.items():
@@ -188,7 +189,7 @@ class ShotwellDb:
 
             id_list = ','.join(idstrs) + ','
 
-            logging.info('Creating tag %s with ids: %s...', tagname, id_list)
+            logging.debug('Creating tag %s with ids: %s...', tagname, id_list)
 
             self._conn.execute(
                 'INSERT INTO TagTable (name, photo_id_list, time_created) VALUES (?, ?, ?)',
