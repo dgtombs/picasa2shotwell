@@ -329,6 +329,9 @@ def copy_db_metadata(picasa_db3_path):
 def _main():
     global _shotwelldb
 
+    # Useful to see INFO-level when executing as a script.
+    logging.basicConfig(level=logging.INFO)
+
     # Just extract this out for readability.
     def create_events(root_paths):
         for root_path in root_paths:
