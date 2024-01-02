@@ -1,4 +1,4 @@
-.PHONY: test
+.PHONY: check
 
-test: 
+check:
 	python3 -m unittest discover
