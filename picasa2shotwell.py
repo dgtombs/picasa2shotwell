@@ -12,7 +12,9 @@ import sqlite3
 import sys
 import time
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+
+import picasa_db3
 
 # Check version before doing anything else.
 if sys.version_info[0] != 3 or sys.version_info[1] < 8:
@@ -36,28 +38,29 @@ class ShotwellDb:
         if db_path is None:
             db_path = shotwelldb_path
         self._conn = sqlite3.connect(db_path)
+        self._conn.row_factory = sqlite3.Row
         # Dictionary from tag name to a set of Shotwell-format IDs.
         self._tags_to_write = {}
 
-    def set_rating(self, filepath, rating):
-        """Sets the specified file's rating to the given value."""
+    def get_photo(self, filepath):
+        """If a photo record exists in the DB for the given file path,
+        returns its entire PhotoTable row as a sqlite3.Row. Otherwise,
+        returns None."""
         # Shotwell stores the absolute path to the file.
-        filepath = filepath.resolve()
-        print('Updating', filepath, 'rating to', rating, '...')
-        cursor = self._conn.cursor()
-        cursor.execute(
-            'UPDATE PhotoTable SET rating = ? WHERE filename = ?',
-            [rating, str(filepath)]
-            )
-        photo_count = cursor.rowcount
-        cursor.execute(
-            'UPDATE VideoTable SET rating = ? WHERE filename = ?',
-            [rating, str(filepath)]
-            )
-        video_count = cursor.rowcount
-        if photo_count + video_count != 1:
-            raise Exception(f'Unexpected row count for rating update: '
-                            'photo_count={photo_count}, video_count={video_count}')
+        filepath = Path(filepath).resolve()
+        # Note that there is a unique constraint on filename.
+        return self._conn.execute(
+            'SELECT * FROM PhotoTable WHERE filename = ?',
+            [str(filepath)]).fetchone()
+
+    def get_video(self, filepath):
+        """Like get_photo() but for videos."""
+        # Shotwell stores the absolute path to the file.
+        filepath = Path(filepath).resolve()
+        # Note that there is a unique constraint on filename.
+        return self._conn.execute(
+            'SELECT * FROM VideoTable WHERE filename = ?',
+            [str(filepath)]).fetchone()
 
     def getsert_event(self, eventname):
         """Returns the id of the event with the given name, creating it if it does not
@@ -94,6 +97,39 @@ class ShotwellDb:
         elif photo_count + video_count > 1:
             raise Exception(f'Filepath {filepath} matched more than one photo/video!')
 
+    def set_title(self, filepath, title):
+        """Sets the specified file's title (aka caption).
+
+        Refuses to set if the file already has a different title."""
+
+        photo_row = self.get_photo(filepath)
+        video_row = self.get_video(filepath)
+
+        if photo_row and video_row:
+            raise Exception(f'Filepath {filepath} matched more than one photo/video!')
+
+        def warn_or_set(table_name, existing_row):
+            if existing_row['title'] and existing_row['title'] != title:
+                logging.warning('Refusing to overwrite existing title "%s" for file "%s"',
+                                existing_row['title'], filepath)
+            else:
+                logging.info('Setting title "%s" for file "%s"',
+                             title, filepath)
+                self._conn.execute(
+                    # execute() doesn't support a placeholder for the table name, so just
+                    # patch that in. We provide the value so this is safe.
+                    'UPDATE ' + table_name + ' SET title = ? WHERE id = ?',
+                    [title, existing_row['id']])
+
+        if photo_row:
+            warn_or_set('PhotoTable', photo_row)
+        elif video_row:
+            warn_or_set('VideoTable', video_row)
+        else:
+            logging.warning(
+                'No photo or video record found for filepath "%s", cannot set title %s',
+                filepath, title)
+
     def get_id_string_for_file(self, filepath):
         """Returns the Shotwell ID string for the given file path.
 
@@ -101,25 +137,16 @@ class ShotwellDb:
         'video-XXXXXXXXXXXXXXXX' for videos.
 
         Returns None if the photo or video could not be found."""
-        # Shotwell stores the absolute path to the file.
-        filepath = filepath.resolve()
-        # Note: there is a UNIQUE contraint on `filename` in both tables.
-        photo_row = self._conn.execute(
-            'SELECT id FROM PhotoTable WHERE filename = ?',
-            [str(filepath)]
-        ).fetchone()
-        video_row = self._conn.execute(
-            'SELECT id FROM VideoTable WHERE filename = ?',
-            [str(filepath)]
-        ).fetchone()
+        photo_row = self.get_photo(filepath)
+        video_row = self.get_video(filepath)
         if photo_row and video_row:
             raise Exception(f'File {filepath} found in both photo and video tables!')
 
         if photo_row:
-            photo_id = photo_row[0]
+            photo_id = photo_row['id']
             return str.format('thumb{:016x}', photo_id)
         elif video_row:
-            video_id = video_row[0]
+            video_id = video_row['id']
             return str.format('video-{:016x}', video_id)
         else:
             return None
@@ -148,7 +175,9 @@ class ShotwellDb:
 
         idstr = self.get_id_string_for_file(filename)
         if idstr is None:
-            raise Exception(f'Filename {filename} not found in DB.')
+            logging.warning(
+                'No photo or video record found for file "%s", cannot apply tag %s',
+                filename, tagname)
 
         self._tags_to_write[tagname] |= {idstr}
 
@@ -173,6 +202,9 @@ class ShotwellDb:
         """Commits pending changes to the DB."""
         self._write_pending_tags()
         self._conn.commit()
+
+    def __del__(self):
+        self._conn.close()
 
 def _write_tags_to_shotwell(filepath, tags):
     for tag in tags:
@@ -259,17 +291,55 @@ def create_events_for_tree(directory):
         if child.is_dir():
             create_events_for_tree(child)
 
+def windows2linux(windows_path):
+    r"""Returns the linux equivalent of the given Windows path.
+
+    The given path is expected to be of form C:\Users\Username\etcetera,
+    and the returned path will be /home/username/etcetera."""
+    windows_path = PureWindowsPath(windows_path)
+    if not windows_path.is_absolute():
+        raise ValueError(f'Supplied windows path "{windows_path}" is not absolute')
+    # Since is_absolute() returned true, we should have a drive letter and a root.
+    # We don't care what the drive letter was, but the first path component must be
+    # 'Users'.
+    if len(windows_path.parts) < 3 or windows_path.parts[1] != 'Users':
+        raise ValueError(
+            f"Supplied windows path '{windows_path}' must be in a user's home directory")
+
+    return Path(Path.home(), *windows_path.parts[3:])
+
+def _copy_file_metadata(picasa_path, fields):
+    """Copies metadata for a single file."""
+    if fields.get('caption'):
+        _shotwelldb.set_title(windows2linux(picasa_path), fields['caption'])
+    if fields.get('tags'):
+        _write_tags_to_shotwell(windows2linux(picasa_path), fields['tags'])
+
+def copy_db_metadata(picasa_db3_path):
+    """Copies desired metadata from the specified Picasa DB to the Shotwell DB."""
+    imagedata_records = picasa_db3.read_imagedata(picasa_db3_path, ['caption', 'tags'])
+    for record in imagedata_records:
+        # Skip records with empty paths. (See comment on read_imagedata().)
+        if record.path:
+            _copy_file_metadata(
+                picasa_db3.resolve_path(record, imagedata_records),
+                record.loaded_fields)
+
 def _main():
     global _shotwelldb
 
     # Just extract this out for readability.
     def create_events(root_paths):
         for root_path in root_paths:
+            print(f'Creating events for {root_path}...')
             create_events_for_tree(root_path)
 
     argparser = argparse.ArgumentParser(prog='picasa2shotwell')
     argparser.add_argument('roots', nargs='*',
                            help='directories to scan for creating events')
+    argparser.add_argument('--db3-path',
+                           help='path to the Picasa db3 directory. '
+                           "If omitted, will skip copying metadata from Picasa's database")
     argparser.add_argument('--dry-run', action='store_true')
     args = argparser.parse_args()
 
@@ -283,6 +353,10 @@ def _main():
     _shotwelldb = ShotwellDb()
 
     create_events(args.roots)
+
+    if args.db3_path:
+        print('Copying metadata from Picasa...')
+        copy_db_metadata(args.db3_path)
 
     if not dry_run:
         _shotwelldb.commit()

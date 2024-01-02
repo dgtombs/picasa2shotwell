@@ -4,6 +4,8 @@
 import io
 import unittest
 
+from pathlib import PureWindowsPath
+
 import picasa_db3
 
 from picasa_db3 import ImagedataRecord
@@ -95,6 +97,32 @@ class TestReadImagedata(unittest.TestCase):
             actual = actual_result[i]
             expected = expected_result[i]
             self.assertImagedataRecordEqual(actual, expected, f'index {i} not equal')
+
+class TestResolvePath(unittest.TestCase):
+    records = [
+        ImagedataRecord(
+            'C:\\Users\\Steve\\Pictures\\',
+            picasa_db3.IDX_NO_PARENT,
+            {'filetype': 1}),
+        ImagedataRecord(
+            'C:\\',
+            picasa_db3.IDX_NO_PARENT,
+            {'filetype': 5}),
+        ImagedataRecord(
+            'ping.jpg',
+            0,
+            {'filetype': 2}),
+    ]
+
+    def test_no_parent(self):
+        self.assertEqual(
+            picasa_db3.resolve_path(self.records[0], self.records),
+            PureWindowsPath(self.records[0].path))
+
+    def test_with_parent(self):
+        self.assertEqual(
+            picasa_db3.resolve_path(self.records[2], self.records),
+            PureWindowsPath(self.records[0].path, self.records[2].path))
 
 if __name__ == '__main__':
     unittest.main()

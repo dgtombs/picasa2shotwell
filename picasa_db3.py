@@ -9,7 +9,7 @@ import logging
 import re
 import struct
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 # Matcher for .pmp filenames.
 # Group 1 is the "table" (e.g., 'imagedata').
@@ -149,9 +149,23 @@ def read_pmp(path, records):
 def read_imagedata(dirname, fields):
     """Reads the 'imagedata' DB from the given directory, including the specified fields.
 
-    Returns a list of ImagedataRecords."""
+    Returns a list of ImagedataRecords. Note that records with a blank path (perhaps
+    deleted files?) are included."""
     dirpath = Path(dirname)
     records = read_thumbindex_db(dirpath / 'thumbindex.db')
     for field in fields:
         read_pmp(dirpath / f'imagedata_{field}.pmp', records)
     return records
+
+def resolve_path(record, records):
+    """Returns a PurePath object representing the path to the given
+    ImageDataRecords's file.
+
+    'records' must be the entire list of imagedata records in order to
+    look up any parent records."""
+    # Assumption: paths are Windows paths
+    return (PureWindowsPath(record.path)
+            if record.parentidx == IDX_NO_PARENT
+            else PureWindowsPath(
+                resolve_path(records[record.parentidx], records),
+                record.path))
